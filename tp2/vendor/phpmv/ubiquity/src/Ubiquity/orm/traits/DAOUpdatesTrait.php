@@ -17,7 +17,7 @@ use Ubiquity\controllers\Startup;
  * This class is part of Ubiquity
  *
  * @author jcheron <myaddressmail@gmail.com>
- * @version 1.1.4
+ * @version 1.1.5
  * @property \Ubiquity\db\Database $db
  *
  */
@@ -131,7 +131,9 @@ trait DAOUpdatesTrait {
 		$keyAndValues = Reflexion::getPropertiesAndValues ( $instance );
 		$keyAndValues = array_merge ( $keyAndValues, OrmUtils::getManyToOneMembersAndValues ( $instance ) );
 		$pk = OrmUtils::getFirstKey ( $className );
-		unset ( $keyAndValues [$pk] );
+		if (($keyAndValues [$pk] ?? null) == null) {
+			unset ( $keyAndValues [$pk] );
+		}
 		$sql = "INSERT INTO {$quote}{$tableName}{$quote} (" . SqlUtils::getInsertFields ( $keyAndValues ) . ') VALUES(' . SqlUtils::getInsertFieldsValues ( $keyAndValues ) . ')';
 		if (Logger::isActive ()) {
 			Logger::info ( 'DAOUpdates', $sql, 'insert' );
@@ -242,8 +244,9 @@ trait DAOUpdatesTrait {
 		$statement = $db->getUpdateStatement ( $sql );
 		try {
 			$result = $statement->execute ( $ColumnskeyAndValues );
-			if ($updateMany && $result)
+			if ($updateMany && $result) {
 				self::insertOrUpdateAllManyToMany ( $instance );
+			}
 			EventsManager::trigger ( DAOEvents::AFTER_UPDATE, $instance, $result );
 			$instance->_rest = \array_merge ( $instance->_rest, $ColumnskeyAndValues );
 			return $result;
@@ -279,8 +282,9 @@ trait DAOUpdatesTrait {
 					EventsManager::trigger ( 'dao.before.update', $instance );
 					$ColumnskeyAndValues = \array_merge ( Reflexion::getPropertiesAndValues ( $instance ), OrmUtils::getManyToOneMembersAndValues ( $instance ) );
 					$result = $statement->execute ( $ColumnskeyAndValues );
-					if ($updateMany && $result)
+					if ($updateMany && $result) {
 						self::insertOrUpdateAllManyToMany ( $instance );
+					}
 					EventsManager::trigger ( DAOEvents::AFTER_UPDATE, $instance, $result );
 					$instance->_rest = \array_merge ( $instance->_rest, $ColumnskeyAndValues );
 					if (Logger::isActive ()) {

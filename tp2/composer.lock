@@ -107,16 +107,16 @@
         },
         {
             "name": "phpmv/php-mv-ui",
-            "version": "2.3.2",
+            "version": "2.3.4",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpMv/phpMv-UI.git",
-                "reference": "feb86ec3d702fee10ca2bdb72dfd8f131d78f299"
+                "reference": "6da0828af7096936e63a6915e63a688e75b8fef7"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpMv/phpMv-UI/zipball/feb86ec3d702fee10ca2bdb72dfd8f131d78f299",
-                "reference": "feb86ec3d702fee10ca2bdb72dfd8f131d78f299",
+                "url": "https://api.github.com/repos/phpMv/phpMv-UI/zipball/6da0828af7096936e63a6915e63a688e75b8fef7",
+                "reference": "6da0828af7096936e63a6915e63a688e75b8fef7",
                 "shasum": ""
             },
             "require": {
@@ -165,24 +165,24 @@
                 "ubiquity",
                 "yii"
             ],
-            "time": "2020-02-24T23:54:16+00:00"
+            "time": "2020-04-27T01:21:28+00:00"
         },
         {
             "name": "phpmv/ubiquity",
-            "version": "2.3.5",
+            "version": "2.3.7",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpMv/ubiquity.git",
-                "reference": "f3f2b9ab95a76c72bd54d697c46f56a571127f48"
+                "reference": "0e9031a291d8dfd1abab8a853f8d57188a6b495d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpMv/ubiquity/zipball/f3f2b9ab95a76c72bd54d697c46f56a571127f48",
-                "reference": "f3f2b9ab95a76c72bd54d697c46f56a571127f48",
+                "url": "https://api.github.com/repos/phpMv/ubiquity/zipball/0e9031a291d8dfd1abab8a853f8d57188a6b495d",
+                "reference": "0e9031a291d8dfd1abab8a853f8d57188a6b495d",
                 "shasum": ""
             },
             "require": {
-                "php": ">7.0"
+                "php": "^7.4"
             },
             "require-dev": {
                 "phpmv/php-mv-ui": "^2.2",
@@ -219,24 +219,24 @@
                 "orm",
                 "php"
             ],
-            "time": "2020-04-08T11:38:13+00:00"
+            "time": "2020-04-30T02:20:35+00:00"
         },
         {
             "name": "phpmv/ubiquity-mailer",
-            "version": "0.0.3",
+            "version": "0.0.4",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpMv/ubiquity-mailer.git",
-                "reference": "15ad919966a3453a378fc4de6a48f3be14bc2e64"
+                "reference": "da81923860b6f755df82e5a6e598751b2e7aaada"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpMv/ubiquity-mailer/zipball/15ad919966a3453a378fc4de6a48f3be14bc2e64",
-                "reference": "15ad919966a3453a378fc4de6a48f3be14bc2e64",
+                "url": "https://api.github.com/repos/phpMv/ubiquity-mailer/zipball/da81923860b6f755df82e5a6e598751b2e7aaada",
+                "reference": "da81923860b6f755df82e5a6e598751b2e7aaada",
                 "shasum": ""
             },
             "require": {
-                "php": ">7.0",
+                "php": "^7.4",
                 "phpmailer/phpmailer": "~6.1",
                 "phpmv/ubiquity": "^2.3.3"
             },
@@ -271,7 +271,7 @@
                 "php-framework",
                 "tools"
             ],
-            "time": "2020-02-04T00:05:22+00:00"
+            "time": "2020-04-20T23:47:56+00:00"
         },
         {
             "name": "symfony/polyfill-ctype",
@@ -660,20 +660,20 @@
         },
         {
             "name": "phpmv/ubiquity-dev",
-            "version": "0.0.6",
+            "version": "0.0.9",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpMv/ubiquity-dev.git",
-                "reference": "b660fc2b2050ae61c9a06e7ba9331a571fe50dc7"
+                "reference": "25de67d65afd80a106a0334c0f55f3eb87d38015"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpMv/ubiquity-dev/zipball/b660fc2b2050ae61c9a06e7ba9331a571fe50dc7",
-                "reference": "b660fc2b2050ae61c9a06e7ba9331a571fe50dc7",
+                "url": "https://api.github.com/repos/phpMv/ubiquity-dev/zipball/25de67d65afd80a106a0334c0f55f3eb87d38015",
+                "reference": "25de67d65afd80a106a0334c0f55f3eb87d38015",
                 "shasum": ""
             },
             "require": {
-                "php": ">7.0"
+                "php": "^7.4"
             },
             "type": "extension",
             "extra": {
@@ -706,24 +706,24 @@
                 "php-framework",
                 "tools"
             ],
-            "time": "2020-02-15T03:11:05+00:00"
+            "time": "2020-04-25T01:14:53+00:00"
         },
         {
             "name": "phpmv/ubiquity-webtools",
-            "version": "2.3.6",
+            "version": "2.3.8",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpMv/ubiquity-webtools.git",
-                "reference": "ed27bad951837205d3ca52f72747b84a9fe67224"
+                "reference": "5528e12202626a77e34e7f3a231fd138d39feaee"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpMv/ubiquity-webtools/zipball/ed27bad951837205d3ca52f72747b84a9fe67224",
-                "reference": "ed27bad951837205d3ca52f72747b84a9fe67224",
+                "url": "https://api.github.com/repos/phpMv/ubiquity-webtools/zipball/5528e12202626a77e34e7f3a231fd138d39feaee",
+                "reference": "5528e12202626a77e34e7f3a231fd138d39feaee",
                 "shasum": ""
             },
             "require": {
-                "php": ">7.0",
+                "php": "^7.4",
                 "phpmv/php-mv-ui": "^2.2.19",
                 "phpmv/ubiquity-dev": "^0.0"
             },
@@ -758,7 +758,7 @@
                 "php-framework",
                 "tools"
             ],
-            "time": "2020-04-09T08:47:26+00:00"
+            "time": "2020-04-30T03:14:34+00:00"
         },
         {
             "name": "psr/log",

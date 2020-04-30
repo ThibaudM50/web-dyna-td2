@@ -9,7 +9,7 @@ class UbiquityMyAdminFiles {
 	private $viewBase = "@admin";
 
 	public function getAdminBaseRoute() {
-		return "Admin";
+		return "/Admin";
 	}
 
 	public function getViewDataIndex() {
@@ -128,6 +128,14 @@ class UbiquityMyAdminFiles {
 		return $this->viewBase . "/git/formGitIgnore.html";
 	}
 
+	public function getViewGitTabsRefresh() {
+		return $this->viewBase . "/git/gitTabs.html";
+	}
+
+	public function getViewGitCmdFrm() {
+		return $this->viewBase . "/git/execGitCmdFrm.html";
+	}
+
 	public function getViewThemesIndex() {
 		return $this->viewBase . "/themes/index.html";
 	}
@@ -174,5 +182,25 @@ class UbiquityMyAdminFiles {
 
 	public function getViewMailerConfig() {
 		return $this->viewBase . "/mailer/mailerConfig.html";
+	}
+
+	public function getViewOAuthIndex() {
+		return $this->viewBase . "/oauth/index.html";
+	}
+
+	public function getViewOAuthTest() {
+		return $this->viewBase . "/oauth/testConnected.html";
+	}
+
+	public function getProviderFrm() {
+		return $this->viewBase . "/oauth/providerFrm.html";
+	}
+
+	public function getOAuthConfigFrm() {
+		return $this->viewBase . "/oauth/configFrm.html";
+	}
+
+	public function getViewAddOAuthController() {
+		return $this->viewBase . "/oauth/oauthControllerFrm.html";
 	}
 }

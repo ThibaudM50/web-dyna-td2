@@ -1,9 +1,9 @@
 <?php
 namespace Ubiquity\controllers\admin;
 
+use Ajax\common\html\BaseWidget;
 use Ajax\php\ubiquity\JsUtils;
 use Ajax\semantic\components\validation\Rule;
-use Ajax\semantic\html\base\HtmlSemDoubleElement;
 use Ajax\semantic\html\base\constants\Direction;
 use Ajax\semantic\html\collections\HtmlMessage;
 use Ajax\semantic\html\collections\form\HtmlFormFields;
@@ -21,18 +21,24 @@ use Ubiquity\controllers\Controller;
 use Ubiquity\controllers\Router;
 use Ubiquity\controllers\Startup;
 use Ubiquity\controllers\admin\popo\ControllerAction;
+use Ubiquity\controllers\admin\popo\MailerClass;
+use Ubiquity\controllers\admin\popo\MailerQueuedClass;
 use Ubiquity\controllers\admin\popo\MaintenanceMode;
 use Ubiquity\controllers\admin\popo\Route;
 use Ubiquity\controllers\admin\traits\CacheTrait;
+use Ubiquity\controllers\admin\traits\ComposerTrait;
+use Ubiquity\controllers\admin\traits\ConfigPartTrait;
 use Ubiquity\controllers\admin\traits\ConfigTrait;
 use Ubiquity\controllers\admin\traits\ControllersTrait;
 use Ubiquity\controllers\admin\traits\CreateControllersTrait;
 use Ubiquity\controllers\admin\traits\DatabaseTrait;
 use Ubiquity\controllers\admin\traits\GitTrait;
 use Ubiquity\controllers\admin\traits\LogsTrait;
+use Ubiquity\controllers\admin\traits\MailerTrait;
 use Ubiquity\controllers\admin\traits\MaintenanceTrait;
 use Ubiquity\controllers\admin\traits\ModelsConfigTrait;
 use Ubiquity\controllers\admin\traits\ModelsTrait;
+use Ubiquity\controllers\admin\traits\OAuthTrait;
 use Ubiquity\controllers\admin\traits\RestTrait;
 use Ubiquity\controllers\admin\traits\RoutesTrait;
 use Ubiquity\controllers\admin\traits\SeoTrait;
@@ -47,7 +53,6 @@ use Ubiquity\log\LoggerParams;
 use Ubiquity\orm\DAO;
 use Ubiquity\orm\OrmUtils;
 use Ubiquity\scaffolding\AdminScaffoldController;
-use Ubiquity\seo\ControllerSeo;
 use Ubiquity\themes\ThemesManager;
 use Ubiquity\translation\TranslatorManager;
 use Ubiquity\utils\UbiquityUtils;
@@ -58,10 +63,8 @@ use Ubiquity\utils\http\URequest;
 use Ubiquity\utils\http\UResponse;
 use Ubiquity\utils\yuml\ClassToYuml;
 use Ubiquity\utils\yuml\ClassesToYuml;
-use Ubiquity\controllers\admin\popo\MailerClass;
-use Ubiquity\controllers\admin\popo\MailerQueuedClass;
-use Ubiquity\controllers\admin\traits\MailerTrait;
-use Ubiquity\controllers\admin\traits\ComposerTrait;
+use Ubiquity\client\oauth\OAuthAdmin;
+use Ajax\semantic\html\elements\HtmlLabel;
 
 /**
  *
@@ -70,7 +73,8 @@ use Ubiquity\controllers\admin\traits\ComposerTrait;
 class UbiquityMyAdminBaseController extends Controller implements HasModelViewerInterface {
 	use MessagesTrait,ModelsTrait,ModelsConfigTrait,RestTrait,CacheTrait,ConfigTrait,
 	ControllersTrait,RoutesTrait,DatabaseTrait,SeoTrait,GitTrait,CreateControllersTrait,
-	LogsTrait,InsertJqueryTrait,ThemesTrait,TranslateTrait,MaintenanceTrait,MailerTrait,ComposerTrait;
+	LogsTrait,InsertJqueryTrait,ThemesTrait,TranslateTrait,MaintenanceTrait,MailerTrait,
+	ComposerTrait,OAuthTrait,ConfigPartTrait;
 
 	/**
 	 *
@@ -108,7 +112,7 @@ class UbiquityMyAdminBaseController extends Controller implements HasModelViewer
 
 	protected static $configFile = ROOT . DS . 'config' . DS . 'adminConfig.php';
 
-	public const version = '2.3.6';
+	public const version = '2.3.8';
 
 	public static function _getConfigFile() {
 		$defaultConfig = [
@@ -144,6 +148,19 @@ class UbiquityMyAdminBaseController extends Controller implements HasModelViewer
 				]
 			]
 		];
+		if (class_exists('\\Cz\\Git\\GitRepository')) {
+			$defaultConfig['git-macros'] = [
+				"Status" => "git status",
+				"commit & push" => "git+add+.%0Agit+commit+-m+%22%3Cyour+message%3E%22%0Agit+push%0A",
+				"checkout" => "git+checkout+%3Cbranch-name%3E",
+				"remove file from remote repository" => "git+rm+--cached+%3Cfilename%3E%0Agit+commit+-m+%22Removed+file+from+repository%22%0Agit+push",
+				"remove folder from remote repository" => "git+rm+--cached+-r+%3Cdir_name%3E%0Agit+commit+-m+%22Removed+folder+from+repository%22%0Agit+push",
+				"undo last commit (soft)" => "git+reset+--soft+HEAD%5E",
+				"undo last commit (hard)" => "git+reset+--hard+HEAD%5E",
+				"unstage file(s) from index" => "git+rm+--cached+%3Cfile-name%3E",
+				"stash & pull (overwrite local changes with pull)" => "git+stash%0Agit+pull%0A"
+			];
+		}
 		if (file_exists(self::$configFile)) {
 			$config = include (self::$configFile);
 			return \array_replace($defaultConfig, $config);
@@ -155,7 +172,7 @@ class UbiquityMyAdminBaseController extends Controller implements HasModelViewer
 		parent::__construct();
 		$this->addAdminViewPath();
 		DAO::$transformerOp = 'toView';
-		$this->insertJquerySemantic();
+		$this->_insertJquerySemantic();
 		$this->config = self::_getConfigFile();
 	}
 
@@ -239,7 +256,9 @@ class UbiquityMyAdminBaseController extends Controller implements HasModelViewer
 				"js" => $this->initializeJs()
 			]);
 		}
-		ob_end_flush();
+		while (ob_get_level() > 0) {
+			ob_end_flush();
+		}
 	}
 
 	protected function addAdminViewPath() {
@@ -427,14 +446,15 @@ class UbiquityMyAdminBaseController extends Controller implements HasModelViewer
 		$this->config["part2"] = explode(',', $part2Str);
 		$this->_saveConfig();
 		$_GET["_refresh"] = true;
-		$this->forward(self::class, 'index', [], true, true);
+		$_REQUEST["_userInfo"] = true;
+		$this->forward(static::class, 'index', [], true, true);
 	}
 
 	public function _resetConfigParams() {
 		$this->config = [];
 		$this->_saveConfig();
 		$_GET["_refresh"] = true;
-		$this->forward(self::class, 'index', [], true, true);
+		$this->forward(static::class, 'index', [], true, true);
 	}
 
 	protected function getActiveDb() {
@@ -747,8 +767,10 @@ class UbiquityMyAdminBaseController extends Controller implements HasModelViewer
 	public function seo() {
 		$this->getHeader("seo");
 		$this->_seo();
-		$this->jquery->compile($this->view);
-		$this->loadView($this->_getFiles()
+		$this->jquery->execOn('click', '#generateRobots', '$("#frm-seoCtrls").form("submit");');
+		$this->jquery->getOnClick('.addNewSeo', $this->_getFiles()
+			->getAdminBaseRoute() . '/_newSeoController', '#seo-details');
+		$this->jquery->renderView($this->_getFiles()
 			->getViewSeoIndex());
 	}
 
@@ -768,88 +790,8 @@ class UbiquityMyAdminBaseController extends Controller implements HasModelViewer
 		$this->_translate($loc, $baseRoute);
 	}
 
-	protected function _seo() {
-		$ctrls = ControllerSeo::init();
-		$dtCtrl = $this->jquery->semantic()->dataTable("seoCtrls", "Ubiquity\seo\ControllerSeo", $ctrls);
-		$dtCtrl->setFields([
-			'name',
-			'urlsFile',
-			'siteMapTemplate',
-			'route',
-			'inRobots',
-			'see'
-		]);
-		$dtCtrl->setIdentifierFunction('getName');
-		$dtCtrl->setCaptions([
-			'Controller name',
-			'Urls file',
-			'SiteMap template',
-			'Route',
-			'In robots?',
-			''
-		]);
-		$dtCtrl->fieldAsLabel('route', 'car', [
-			'jsCallback' => function ($lbl, $instance, $i, $index) {
-				if ($instance->getRoute() == "") {
-					$lbl->setProperty('style', 'display:none;');
-				}
-			}
-		]);
-		$dtCtrl->fieldAsCheckbox('inRobots', [
-			'type' => 'toggle',
-			'disabled' => true
-		]);
-		$dtCtrl->setValueFunction('see', function ($value, $instance, $index) {
-			if ($instance->urlExists()) {
-				$bt = new HtmlButton('see-' . $index, '', '_see circular basic right floated');
-				$bt->setProperty("data-ajax", $instance->getName());
-				$bt->asIcon('eye');
-				return $bt;
-			}
-		});
-		$dtCtrl->setValueFunction('urlsFile', function ($value, $instance, $index) {
-			if (! $instance->urlExists()) {
-				$elm = new HtmlSemDoubleElement('urls-' . $index, 'span', '', $value);
-				$elm->addIcon("warning circle red");
-				$elm->addPopup("Missing", $value . ' is missing!');
-				return $elm;
-			}
-			return $value;
-		});
-		$dtCtrl->addDeleteButton(false, [], function ($bt) {
-			$bt->setProperty('class', 'ui circular basic red right floated icon button _delete');
-		});
-		$dtCtrl->setTargetSelector([
-			"delete" => "#messages"
-		]);
-		$dtCtrl->setUrls([
-			"delete" => $this->_getFiles()
-				->getAdminBaseRoute() . "/_deleteSeoController"
-		]);
-		$dtCtrl->getOnRow('click', $this->_getFiles()
-			->getAdminBaseRoute() . '/_displaySiteMap', '#seo-details', [
-			'attr' => 'data-ajax',
-			'hasLoader' => false
-		]);
-		$dtCtrl->setHasCheckboxes(true);
-		$dtCtrl->setSubmitParams($this->_getFiles()
-			->getAdminBaseRoute() . '/_generateRobots', "#messages", [
-			'attr' => '',
-			'ajaxTransition' => 'random'
-		]);
-		$dtCtrl->setActiveRowSelector('error');
-		$this->jquery->getOnClick("._see", $this->_getFiles()
-			->getAdminBaseRoute() . "/_seeSeoUrl", "#messages", [
-			"attr" => "data-ajax"
-		]);
-		$dtCtrl->setEmptyMessage($this->showSimpleMessage("<p>No SEO controller available!</p><a class='ui teal button addNewSeo'><i class='ui sitemap icon'></i>Add a new one...</a>", "info", "SEO Controllers", "info circle"));
-		$this->jquery->execOn('click', '#generateRobots', '$("#frm-seoCtrls").form("submit");');
-		$this->jquery->getOnClick('.addNewSeo', $this->_getFiles()
-			->getAdminBaseRoute() . '/_newSeoController', '#seo-details');
-		return $dtCtrl;
-	}
-
 	public function git($hasMessage = true) {
+		$semantic = $this->jquery->semantic();
 		$loader = '<div class="ui active inline centered indeterminate text loader">Waiting for git operation...</div>';
 		$this->getHeader("git");
 		$gitRepo = $this->_getRepo();
@@ -857,8 +799,9 @@ class UbiquityMyAdminBaseController extends Controller implements HasModelViewer
 		$pushPullBts = "";
 		$gitIgnoreBt = "";
 		$btRefresh = "";
+		$execCmdBt = "";
 		if (! $gitRepo->getInitialized()) {
-			$initializeBt = $this->jquery->semantic()->htmlButton("initialize-bt", "Initialize repository", "orange");
+			$initializeBt = $semantic->htmlButton("initialize-bt", "Initialize repository", "orange");
 			$initializeBt->addIcon("magic");
 			$initializeBt->getOnClick($this->_getFiles()
 				->getAdminBaseRoute() . "/_gitInit", "#main-content", [
@@ -870,7 +813,7 @@ class UbiquityMyAdminBaseController extends Controller implements HasModelViewer
 			if ($hasMessage) {
 				$this->showSimpleMessage("<b>{$gitRepo->getName()}</b> repository is correctly initialized.", "info", null, "info circle", null, "init-message");
 			}
-			$pushPullBts = $this->jquery->semantic()->htmlButtonGroups("push-pull-bts", [
+			$pushPullBts = $semantic->htmlButtonGroups("push-pull-bts", [
 				"3-Push",
 				"1-Pull"
 			]);
@@ -891,46 +834,40 @@ class UbiquityMyAdminBaseController extends Controller implements HasModelViewer
 				"attr" => "data-ajax",
 				"ajaxLoader" => $loader
 			]);
-			$pushPullBts->setPropertyValues("style", "width: 260px;");
-			$gitIgnoreBt = $this->jquery->semantic()->htmlButton("gitIgnore-bt", ".gitignore");
+			$pushPullBts->setPropertyValues("style", "width: 220px;");
+			$gitIgnoreBt = $semantic->htmlButton("gitIgnore-bt", ".gitignore");
 			$gitIgnoreBt->getOnClick($this->_getFiles()
 				->getAdminBaseRoute() . "/_gitIgnoreEdit", "#frm", [
 				"attr" => ""
 			]);
-			$btRefresh = $this->jquery->semantic()->htmlButton("refresh-bt", "Refresh files", "green");
+			$btRefresh = $semantic->htmlButton("refresh-bt", "Refresh files", "green");
 			$btRefresh->addIcon("sync alternate");
 			$btRefresh->getOnClick($this->_getFiles()
 				->getAdminBaseRoute() . "/_refreshGitFiles", "#dtGitFiles", [
-				"attr" => "",
-				"jqueryDone" => "replaceWith",
-				"hasLoader" => false
+				'attr' => '',
+				'jqueryDone' => 'replaceWith',
+				'hasLoader' => false
+			]);
+
+			$execCmdBt = $semantic->htmlButton("execCmd-bt", "Git cmd");
+			$execCmdBt->getOnClick($this->_getFiles()
+				->getAdminBaseRoute() . '/_gitCmdFrm', '#frm', [
+				'hasLoader' => 'internal'
 			]);
 		}
 
-		$this->jquery->exec('$.fn.form.settings.rules.checkeds=function(value){var fields = $("[name=\'files-to-commit[]\']:checked");return fields.length>0;};', true);
-		$files = $gitRepo->getFiles();
-		$this->_getAdminViewer()->getGitFilesDataTable($files);
-		$this->_getAdminViewer()->getGitCommitsDataTable($gitRepo->getCommits());
-
-		$this->jquery->exec('$("#lbl-changed").toggle(' . ((sizeof($files) > 0) ? "true" : "false") . ');', true);
-
 		$this->jquery->getOnClick("#settings-btn", $this->_getFiles()
 			->getAdminBaseRoute() . "/_gitFrmSettings", "#frm");
-		$this->jquery->exec('$("#commit-frm").form({"fields":{"summary":{"rules":[{"type":"empty"}]},"files-to-commit[]":{"rules":[{"type":"checkeds","prompt":"You must select at least 1 file!"}]}},"on":"blur","onSuccess":function(event,fields){' . $this->jquery->postFormDeferred($this->_getFiles()
-			->getAdminBaseRoute() . "/_gitCommit", "commit-frm", "#messages", [
-			"preventDefault" => true,
-			"stopPropagation" => true,
-			"ajaxLoader" => $loader
-		]) . ';return false;}});', true);
-		$this->jquery->exec('$("#git-tabs .item").tab();', true);
-		$this->jquery->compile($this->view);
-		$this->loadView($this->_getFiles()
+
+		$this->gitTabs($gitRepo, $loader);
+		$this->jquery->renderView($this->_getFiles()
 			->getViewGitIndex(), [
 			"repo" => $gitRepo,
 			"initializeBt" => $initializeBt,
 			"gitIgnoreBt" => $gitIgnoreBt,
 			"pushPullBts" => $pushPullBts,
-			"btRefresh" => $btRefresh
+			"btRefresh" => $btRefresh,
+			"execCmdBt" => $execCmdBt
 		]);
 	}
 
@@ -1410,7 +1347,7 @@ class UbiquityMyAdminBaseController extends Controller implements HasModelViewer
 		if (URequest::isPost()) {
 			$url = URequest::cleanUrl($_POST["url"]);
 			unset($_POST["url"]);
-			$method = $_POST["method"];
+			$method = $_POST["method"] ?? 'GET';
 			unset($_POST["method"]);
 			$newParams = null;
 			$postParams = $_POST;
@@ -1431,7 +1368,7 @@ class UbiquityMyAdminBaseController extends Controller implements HasModelViewer
 					$this->_setGetCookie($url, \json_encode($newParams));
 				}
 			}
-			$modal = $this->jquery->semantic()->htmlModal("response", \strtoupper($method) . ":" . $url);
+			$modal = $this->jquery->semantic()->htmlModal("rModal", \strtoupper($method) . ":" . $url);
 			$params = $this->getRequiredRouteParameters($url, $newParams);
 			if (\sizeof($params) > 0) {
 				$toPost = \array_merge($postParams, [
@@ -1456,14 +1393,14 @@ class UbiquityMyAdminBaseController extends Controller implements HasModelViewer
 				]);
 				$modal->setContent($frm);
 				$modal->addAction("Validate");
-				$this->jquery->click("#action-response-0", "$('#frmGetParams').form('submit');");
+				$this->jquery->click("#action-rModal-0", "$('#frmGetParams').form('submit');");
 			} else {
-				$this->jquery->ajax($method, $url, '#content-response.content', [
+				$this->jquery->ajax($method, $url, '#content-rModal.content', [
 					"params" => \json_encode($postParams)
 				]);
 			}
 			$modal->addAction("Close");
-			$this->jquery->exec("$('.dimmer.modals.page').html('');$('#response').modal('show');", true);
+			$this->jquery->exec("$('.dimmer.modals.page').html('');$('#rModal').modal('show');", true);
 			echo $modal;
 			echo $this->jquery->compile($this->view);
 		}
@@ -1531,6 +1468,11 @@ class UbiquityMyAdminBaseController extends Controller implements HasModelViewer
 			}
 		}
 		return [];
+	}
+
+	protected function loadViewCompo(BaseWidget $elm) {
+		$elm->setLibraryId('_compo_');
+		$this->jquery->renderView('@framework/main/component.html');
 	}
 
 	protected function _createController($controllerName, $variables = [], $ctrlTemplate = 'controller.tpl', $hasView = false, $jsCallback = "") {
@@ -1752,11 +1694,71 @@ class UbiquityMyAdminBaseController extends Controller implements HasModelViewer
 			->getViewComposerIndex());
 	}
 
+	public function oauth($response = '') {
+		$baseRoute = $this->_getFiles()->getAdminBaseRoute();
+		$this->getHeader("oauth");
+		$this->getOAuthDataTable($baseRoute);
+
+		$pConfig = OAuthAdmin::loadConfig();
+		$url = $pConfig['callback'] ?? null;
+		if (isset($url) && $url != null) {
+			$callback = new HtmlLabel('_link', $url, 'tags');
+			$callback->addClass('large');
+			$rRoute = OAuthAdmin::getRedirectRoute();
+			$rInfo = Router::getRouteInfo($rRoute . '/Google');
+			if (is_array($rInfo)) {
+				$lbl = new HtmlLabel("", "<span style='font-weight: bold;color: #3B83C0;'>" . $rInfo['controller'] . "</span>::<span style='color: #7F0055;'>" . $rInfo['action'] . "</span>", "heartbeat");
+				$lbl->addClass('basic large');
+				$firstProvider = array_key_first($pConfig['providers'] ?? []);
+				if (isset($firstProvider)) {
+					$callback->asLink($url . '/' . $firstProvider, '_blank');
+					$this->jquery->postOnClick('#_link', $baseRoute . '/_runAction', "{url: \"{$rRoute}/(.+?)/\"}", '#response');
+				}
+				$callback .= $lbl . '&nbsp;<i class="ui icon large check green"></i>';
+			} else {
+				$callback .= (HtmlLabel::tag('', "<i class='ui warning circle icon'></i> no route associated with callback"))->addClass('orange');
+			}
+		} else {
+			$callback = $this->showSimpleMessage('Callback URL is missing in config file!', 'warning', 'Callback', 'warning circle');
+		}
+
+		$this->jquery->getOnClick('#config-btn', $baseRoute . '/_globalConfigFrm', '#response', [
+			'hasLoader' => 'internal'
+		]);
+		$this->jquery->getOnClick('#add-provider-btn', $baseRoute . '/_addOAuthProviderFrm', '#response', [
+			'hasLoader' => 'internal'
+		]);
+
+		$this->jquery->getOnClick('#create-controller-btn', $baseRoute . '/_createOAuthControllerFrm', '#response', [
+			'hasLoader' => 'internal'
+		]);
+		$this->jquery->execAtLast('$(".ui.accordion").accordion({exclusive:false});');
+
+		$this->jquery->renderView($this->_getFiles()
+			->getViewOAuthIndex(), [
+			'response' => $response,
+			'callback' => $callback
+		]);
+	}
+
 	protected function getConsoleMessage_($id = 'partial', $defaultMsg = 'Composer update...') {
 		return "\"<div style=\'white-space: pre;white-space: pre-line;\' class=\'ui inverted message\'><i class=\'icon close\'></i><div class=\'header\'>{$defaultMsg}</div><div id=\'" . $id . "\' class=\'content\'><div class=\'ui active slow green double loader\'></div></div></div>\"";
 	}
 
 	protected function addCloseToMessage() {
 		$this->jquery->execAtLast('$(".message .close").on("click", function() {$(this).closest(".message").transition("fade");});');
+	}
+
+	protected function liveExecuteCommand($cmd) {
+		$proc = \popen("$cmd 2>&1", 'r');
+		$live_output = "";
+		while (! \feof($proc)) {
+			$live_output = fread($proc, 4096);
+			$live_output = mb_convert_encoding($live_output, 'UTF-8', 'UTF-8');
+			echo "$live_output";
+			flush();
+			ob_flush();
+		}
+		\pclose($proc);
 	}
 }
