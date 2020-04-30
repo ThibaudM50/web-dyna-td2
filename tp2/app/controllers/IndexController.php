@@ -34,4 +34,14 @@ class IndexController extends ControllerBase{
 		}
 	}
 
+
+	/**
+	 *@route("contact","methods"=>["get"])
+	**/
+	public function ContactFrom(){
+		
+		$this->loadView('IndexController/ContactFrom.html');
+
+	}
+
 }
